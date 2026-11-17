@@ -18,7 +18,7 @@ if STORAGE == "s3":
     # master_survey_system, survey_data_map, master_defect_type (UPC filter / lengths, DB id columns) — <table>.csv
     DB_TABLES_DIR = f"{S3_ROOT}/DHMS/DIC_Staging/Latest"
     # Silver tables: master_*.csv, master_chainage.csv, upc_reporting_intervals.csv, dlm_threshold_mapping.csv
-    SILVER_INPUT_DIR = f"{S3_ROOT}/Silver/old_Latest/dhms_staging_silver_data"
+    SILVER_INPUT_DIR = f"{S3_ROOT}/Silver/old_Latest/dic_staging_silver_data"
     # Outputs — all in the gold folder, each table saved as
     #   <GOLD_ROOT>/year=YYYY/month=MM/day=DD/<table>.csv  (run date)  +  <GOLD_ROOT>/Latest/<table>.csv
     # (common/storage.py); the newest saved copy is read back on the next run

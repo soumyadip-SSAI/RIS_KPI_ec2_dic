@@ -22,3 +22,7 @@ code_db_id(wfm)/
 
 # db_push dry-run previews
 db_push/dry_run_output/
+
+# Local files: not committed
+data/
+linux_output.txt

@@ -5,7 +5,7 @@ tables (defect statuses, UPC / survey / defect type masters). Every input is rea
 to S3; nothing is kept on the machine that runs it.
 
 DIC copy of `ris_kpi_golden_modular`: same code, other S3 folders (`src/ris_kpi/config.py`): silver input
-`Silver/old_Latest/dhms_staging_silver_data/`, DB tables `DHMS/DIC_Staging/Latest/`, outputs `Gold/DIC_Staging/`.
+`Silver/old_Latest/dic_staging_silver_data/`, DB tables `DHMS/DIC_Staging/Latest/`, outputs `Gold/DIC_Staging/`.
 
 | Command | Use it when | Writes |
 |---|---|---|
@@ -24,7 +24,7 @@ run date and as a `Latest/` copy (see [Output folders](#output-folders)).
 | | S3 location | Contents |
 |---|---|---|
 | in  | `DHMS/DIC_Staging/Latest/` | DB tables written by the separate DB export job: `dlm_defect_case.csv`, `udm_defect_reference.csv` (statuses), `master_upc_project.csv`, `master_survey_system.csv`, `survey_data_map.csv`, `master_defect_type.csv` (UPC filter, UPC lengths, DB id columns) |
-| in  | `Silver/old_Latest/dhms_staging_silver_data/` | silver tables (`master_*.csv`, `master_chainage.csv`, `upc_reporting_intervals.csv`, `dlm_threshold_mapping.csv`) |
+| in  | `Silver/old_Latest/dic_staging_silver_data/` | silver tables (`master_*.csv`, `master_chainage.csv`, `upc_reporting_intervals.csv`, `dlm_threshold_mapping.csv`) |
 | in + out | `Gold/DIC_Staging/` (`Latest/` and `year=YYYY/month=MM/day=DD/`) | every output table: the 5 silver defect tables + `defect_reference_id`, `current_status`, `final_status` (golden's `silver_data_with_status`), `final_intermediate.csv`, `ris_view_data.csv`, `ris_trends_data.csv` |
 
 The gold folder is also an input: each step reads the newest saved copy of its table and saves the changed table
