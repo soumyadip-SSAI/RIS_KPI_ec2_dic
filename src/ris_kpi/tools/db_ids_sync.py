@@ -8,10 +8,11 @@ existing DB row instead of inserting a second one. Rows without a match keep the
 DB). Keys (compared as text: trimmed, case-insensitive, dates as yyyy-mm-dd, empty = empty):
 
     ris_view   survey_source_id, upc_id, defect_detected_on, survey_id, defect_type_id + status
-    ris_trends upc_id, survey_id, survey_source_id, defect_detected_on, pavement_type + roughness_irc_category
+    ris_trends upc_id, survey_id, survey_source_id, defect_detected_on, pavement_type, roughness_ca_category,
+               roughness_irc_category, rutting_ca_category, rutting_irc_category
 
-The last key of each is needed to make a row unique: ris_view has an open and a close row per defect type, and
-ris_trends a Good / Fair / Poor row per pavement type. A key that is still shared by several rows (in run_data or in
+status is needed to make a ris_view row unique (an open and a close row per defect type); the category columns
+separate the Good / Fair / Poor rows of ris_trends (an empty category matches an empty category). A key that is still shared by several rows (in run_data or in
 kpi_data) is ambiguous and is left unchanged (logged).
 
 Only the Latest/ file is overwritten; the dated year=/month=/day= copies are not touched. The next `ris-kpi run`
@@ -46,7 +47,7 @@ TABLES = {
     "ris_trends": {
         "run_root": RisTrends.OUTPUT_ROOT, "run_name": RisTrends.RIS_TRENDS_OUTPUT_NAME, "db_table": "ris_trends_kpi",
         "key": ["upc_id", "survey_id", "survey_source_id", "defect_detected_on", "pavement_type",
-                "roughness_irc_category"],
+                "roughness_ca_category", "roughness_irc_category", "rutting_ca_category", "rutting_irc_category"],
     },
 }
 SAMPLE_ROWS = 10

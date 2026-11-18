@@ -235,10 +235,10 @@ second one. Rows without a match keep their own `id` / `created_at` (new to the 
 | Table | Key |
 |---|---|
 | `ris_view_data` | `survey_source_id`, `upc_id`, `defect_detected_on`, `survey_id`, `defect_type_id`, `status` |
-| `ris_trends_data` | `upc_id`, `survey_id`, `survey_source_id`, `defect_detected_on`, `pavement_type`, `roughness_irc_category` |
+| `ris_trends_data` | `upc_id`, `survey_id`, `survey_source_id`, `defect_detected_on`, `pavement_type`, `roughness_ca_category`, `roughness_irc_category`, `rutting_ca_category`, `rutting_irc_category` |
 
-`status` / `roughness_irc_category` make the key unique: ris_view has an open and a close row per defect type,
-ris_trends a Good / Fair / Poor row per pavement type. Keys are compared trimmed and case-insensitive, dates as
+`status` makes the ris_view key unique (an open and a close row per defect type); the category columns separate the
+Good / Fair / Poor rows of ris_trends (an empty category matches an empty one). Keys are compared trimmed and case-insensitive, dates as
 `yyyy-mm-dd`. A key shared by several rows is left unchanged (logged). It reads and overwrites only
 `Gold/DIC_Staging/Latest/ris_view_data.csv` / `ris_trends_data.csv` (same names); the dated copies are not touched.
 The next `ris-kpi run` writes `Latest/` again from the newest dated copy, so run this after every `ris-kpi run`
