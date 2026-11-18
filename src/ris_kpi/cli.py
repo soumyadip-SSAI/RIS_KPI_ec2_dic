@@ -6,6 +6,7 @@
     ris-kpi ris-view [--step silver-status intermediate view]   # RIS view; --step: those steps only (UPDATE)
     ris-kpi ris-trends
     ris-kpi compare OLD_DIR NEW_DIR              # before/after output check
+    ris-kpi sync-db-ids [--dry-run]              # after a run: id / created_at from the DB KPI tables
 
 Exit code 1 when anything fails.
 """
@@ -43,6 +44,11 @@ def _build_parser():
     cmp_.add_argument("--ignore-columns", nargs="*", default=list(DEFAULT_IGNORE),
                       help=f"columns left out of the comparison (default: {' '.join(DEFAULT_IGNORE)})")
     cmp_.add_argument("--sort-rows", action="store_true", help="compare rows regardless of their order")
+
+    sync = sub.add_parser("sync-db-ids", help="copy id / created_at of ris_view_kpi / ris_trends_kpi (DB export) "
+                                              "into the saved ris_view_data / ris_trends_data")
+    sync.add_argument("--dry-run", action="store_true", help="report only, nothing saved")
+    sync.add_argument("--only", nargs="+", choices=["ris_view", "ris_trends"], help="these tables only")
     return parser
 
 
@@ -67,6 +73,9 @@ def main(argv=None):
             ok = True
         elif args.command == "compare":
             ok = compare_dirs(args.old_dir, args.new_dir, args.ignore_columns, args.sort_rows)
+        elif args.command == "sync-db-ids":
+            from ris_kpi.tools.db_ids_sync import run_sync
+            ok = run_sync(only=args.only, dry_run=args.dry_run)
     except Exception:
         log.exception("%s FAILED", args.command)
         ok = False

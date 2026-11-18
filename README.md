@@ -11,6 +11,7 @@ DIC copy of `ris_kpi_golden_modular`: same code, other S3 folders (`src/ris_kpi/
 |---|---|---|
 | `ris-kpi run` | Full KPI creation (new survey data / silver tables) | everything below |
 | `ris-kpi status-update` | Only defect statuses changed in the DB (cases closed, assigned, ...) | silver with status, `final_intermediate`, `ris_view_data` |
+| `ris-kpi sync-db-ids` | Manually, after every run: take `id` / `created_at` of rows already in the DB | `Latest/ris_view_data.csv`, `Latest/ris_trends_data.csv` |
 
 `ris-kpi status-update` is the EC2 version of golden's `defect_status_updation` flow: the DB export job has already
 refreshed the status tables on S3, so it only re-runs the RIS view (same as `ris-kpi ris-view`).
@@ -109,6 +110,9 @@ ris-kpi status-update            # only defect statuses changed: the RIS view (s
 ris-kpi ris-view                 # the same RIS view run
 ris-kpi ris-view --step view     # single steps (silver-status, intermediate, view), UPDATE mode for all surveys
 ris-kpi ris-trends
+
+ris-kpi sync-db-ids --dry-run     # after a run: report which rows get the DB id / created_at
+ris-kpi sync-db-ids               # copy them and save (see "DB ids of existing rows")
 ```
 
 `python -m ris_kpi ...` works the same way. The same steps can be called from Python (for example from an Airflow
@@ -220,6 +224,25 @@ dropped and the columns are renamed to snake_case (`UPC Length(in km)` -> `upc_l
 UPC lengths and UPC filter (`ris_view/project_master.py`): `UPC Length(in km)` = `master_upc_project.length_km`,
 `UPC Lane Length(in km)` = `lane_length_km`. `FILTER_BY_PROJECT_MASTER = True` keeps only UPCs in `master_upc_project`
 (ris_view and ris_trends).
+
+## DB ids of existing rows (`ris-kpi sync-db-ids`)
+
+Run by hand after `ris-kpi run`. It reads the newest saved `ris_view_data` / `ris_trends_data` (run_data) and the
+DB export `ris_view_kpi` / `ris_trends_kpi` in `DHMS/DIC_Staging/Latest/` (kpi_data). A run_data row whose key matches a
+kpi_data row takes that row's `id` and `created_at`, so the DB push UPDATEs the existing DB row instead of adding a
+second one. Rows without a match keep their own `id` / `created_at` (new to the DB).
+
+| Table | Key |
+|---|---|
+| `ris_view_data` | `survey_source_id`, `upc_id`, `defect_detected_on`, `survey_id`, `defect_type_id`, `status` |
+| `ris_trends_data` | `upc_id`, `survey_id`, `survey_source_id`, `defect_detected_on`, `pavement_type`, `roughness_irc_category` |
+
+`status` / `roughness_irc_category` make the key unique: ris_view has an open and a close row per defect type,
+ris_trends a Good / Fair / Poor row per pavement type. Keys are compared trimmed and case-insensitive, dates as
+`yyyy-mm-dd`. A key shared by several rows is left unchanged (logged). It reads and overwrites only
+`Gold/DIC_Staging/Latest/ris_view_data.csv` / `ris_trends_data.csv` (same names); the dated copies are not touched.
+The next `ris-kpi run` writes `Latest/` again from the newest dated copy, so run this after every `ris-kpi run`
+(`tools/db_ids_sync.py`).
 
 ## Settings
 
