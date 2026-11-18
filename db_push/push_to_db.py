@@ -9,9 +9,8 @@ For every table:
   2. Rows are matched on `id`:
        id already in the DB -> UPDATE every pushed column except id and created_at
        id not in the DB     -> INSERT the whole row (pushed columns)
-     created_at / updated_at are set from the time of this run, not taken from the CSV:
-       UPDATE: updated_at = run time; created_at is not changed (the DB keeps its value)
-       INSERT: created_at = updated_at = run time
+     Every value comes from the CSV as it is (run `ris-kpi sync-db-ids` first, so rows already in the DB carry their
+     DB id / created_at).
   3. DRY_RUN (default True): nothing is written. The DB is only read (SELECT), every value is cast to its DB column type
      (so a value the DB would reject is reported now), and the planned changes are saved to dry_run_output/:
        <table>_insert.csv            rows that would be inserted
@@ -35,7 +34,6 @@ import os
 import re
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -43,8 +41,6 @@ import pandas as pd
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import execute_values
-
-from date_format import fix_date_columns      # db_push/date_format.py: defect_detected_on -> yyyy-mm-dd
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Settings
@@ -58,10 +54,7 @@ TABLES = {
     "ris_trends": {"source": f"{S3_LATEST}/ris_trends_data.csv", "table": "ris_trends_kpi", "drop": ["phase", "cycle"]},
 }
 KEY = "id"                                 # rows are matched on this column
-CREATED_AT, UPDATED_AT = "created_at", "updated_at"
-NOT_UPDATED = {KEY, CREATED_AT}            # never changed on an UPDATE
-# Time of this run (UTC), used for created_at / updated_at instead of the CSV values
-RUN_TIME = datetime.now(timezone.utc).isoformat(sep=" ")
+NOT_UPDATED = {KEY, "created_at"}          # never changed on an UPDATE
 PAGE_SIZE = 1000                           # rows per SQL statement
 HERE = Path(__file__).resolve().parent
 ENV_FILE = HERE / ".env"
@@ -197,7 +190,6 @@ def plan_table(cur, name, cfg, schema, source):
     dropped = [c for c in cfg["drop"] if c in df.columns]
     df = df.drop(columns=dropped)
     print(f"CSV: {len(df):,} rows, {len(df.columns)} columns" + (f" (not pushed: {dropped})" if dropped else ""))
-    df = fix_date_columns(df)
 
     columns = db_columns(cur, schema, table)
     if not columns:
@@ -219,13 +211,6 @@ def plan_table(cur, name, cfg, schema, source):
         print(f"!! '{KEY}' is not in both the CSV and the DB table - table skipped")
         return None
     df = normalise(df[pushed], columns)
-
-    # created_at / updated_at: from the run time (added when the DB has them, even if the CSV does not)
-    stamps = [c for c in (CREATED_AT, UPDATED_AT) if c in columns and columns[c]["writable"]]
-    for col in stamps:
-        if col not in pushed:
-            pushed.append(col)
-            df[col] = None
     update_cols = [c for c in pushed if c not in NOT_UPDATED]
 
     no_id = df[KEY].isna()
@@ -240,13 +225,9 @@ def plan_table(cur, name, cfg, schema, source):
 
     in_db = existing_ids(cur, schema, table)
     is_update = df[KEY].isin(in_db)
-    inserts = df[~is_update].assign(**{c: RUN_TIME for c in stamps})                        # created + updated
-    updates = df[is_update].assign(**{c: RUN_TIME for c in stamps if c == UPDATED_AT})      # updated only
+    inserts, updates = df[~is_update], df[is_update]
     print(f"DB table: {len(in_db):,} rows. Plan: INSERT {len(inserts):,} rows (new {KEY}), "
           f"UPDATE {len(updates):,} rows (matching {KEY}; columns {update_cols})")
-    if stamps:
-        print(f"Run time {RUN_TIME}: INSERT -> {' + '.join(stamps)}; "
-              f"UPDATE -> {UPDATED_AT if UPDATED_AT in stamps else 'nothing'} ({CREATED_AT} kept in the DB)")
 
     plan = {"name": name, "table": table, "schema": schema, "columns": columns, "pushed": pushed,
             "update_cols": update_cols, "update_values": [KEY] + update_cols,
@@ -326,7 +307,7 @@ def check_inserts(cur, plan):
 def diff_updates(cur, plan):
     """Per updated row and column: DB value vs new value (compared in the DB after the cast, so 1.0 = 1)."""
     updates, cols = plan["updates"], plan["update_values"]
-    compared = [c for c in plan["update_cols"] if c != UPDATED_AT]   # updated_at: run time on every updated row
+    compared = plan["update_cols"]
     plan["changes"] = pd.DataFrame(columns=[KEY, "column", "db_value", "new_value"])
     if updates.empty or not plan["update_cols"]:
         return
@@ -356,8 +337,7 @@ def diff_updates(cur, plan):
     plan["changes"] = changes
     n_changed = changes[KEY].nunique()
     print(f"Update values: all {len(updates):,} rows cast to the DB column types; {n_changed:,} rows have a "
-          f"different value, {len(updates) - n_changed:,} are already the same (not counting {UPDATED_AT}, "
-          "set to the run time on every updated row)")
+          f"different value, {len(updates) - n_changed:,} are already the same")
     if not changes.empty:
         print("Changed cells per column: " + ", ".join(f"{c}={n:,}" for c, n in
                                                          changes["column"].value_counts().items()))

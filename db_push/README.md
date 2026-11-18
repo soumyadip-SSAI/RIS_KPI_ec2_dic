@@ -11,12 +11,9 @@ Rows are matched on `id`:
 - **`id` already in the DB:** UPDATE every pushed column except `id` and `created_at`.
 - **`id` not in the DB:** INSERT the whole row.
 
-`created_at` / `updated_at` come from the time of the run (UTC), not from the CSV:
-- **UPDATE:** `updated_at` is set to the run time, and `created_at` keeps its DB value.
-- **INSERT:** both are set to the run time.
-
-`defect_detected_on` is converted to `yyyy-mm-dd` before the push (`date_format.py`). Dates are read day first, so
-`25-01-2025` becomes `2025-01-25`.
+Every value is pushed as it is in the CSV, including `created_at` / `updated_at`. Run `ris-kpi sync-db-ids` after
+`ris-kpi run` and before this push, so rows already in the DB carry their DB `id` / `created_at` and are UPDATEd
+rather than inserted a second time.
 
 Only columns that exist in both the CSV and the DB table are pushed. The others are skipped and listed in the output.
 
